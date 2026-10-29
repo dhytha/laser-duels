@@ -22,7 +22,7 @@
 #include <string.h>
 #include <stdarg.h>
 
-#define LCD_USE_I2C 0
+#define LCD_USE_I2C 1
 
 #if LCD_USE_I2C
 #include <Wire.h>
@@ -45,16 +45,18 @@ namespace Config {
 
   const uint8_t PLAYER_COUNT = 2;
   const uint8_t KEYPAD_ROWS = 4;
-  const uint8_t KEYPAD_COLS = 4;
-  const uint8_t PLAYER_1_ROW_PINS[KEYPAD_ROWS] = {30, 31, 32, 33};
-  const uint8_t PLAYER_1_COL_PINS[KEYPAD_COLS] = {34, 35, 36, 37};
-  const uint8_t PLAYER_2_ROW_PINS[KEYPAD_ROWS] = {38, 39, 40, 41};
-  const uint8_t PLAYER_2_COL_PINS[KEYPAD_COLS] = {42, 43, 44, 45};
+  const uint8_t KEYPAD_COLS = 3;
+  // Adafruit 3x4 keypad connector order: COL2, ROW1, COL1, ROW4,
+  // COL3, ROW3, ROW2. Pins remain wired left-to-right in ascending order.
+  const uint8_t PLAYER_1_ROW_PINS[KEYPAD_ROWS] = {23, 28, 27, 25};
+  const uint8_t PLAYER_1_COL_PINS[KEYPAD_COLS] = {24, 22, 26};
+  const uint8_t PLAYER_2_ROW_PINS[KEYPAD_ROWS] = {35, 40, 39, 37};
+  const uint8_t PLAYER_2_COL_PINS[KEYPAD_COLS] = {36, 34, 38};
   const char KEYPAD_LAYOUT[KEYPAD_ROWS][KEYPAD_COLS] = {
-    {'1', '2', '3', 'A'},
-    {'4', '5', '6', 'B'},
-    {'7', '8', '9', 'C'},
-    {'*', '0', '#', 'D'}
+    {'1', '2', '3'},
+    {'4', '5', '6'},
+    {'7', '8', '9'},
+    {'*', '0', '#'}
   };
 
   const uint8_t BUTTON_PINS[PLAYER_COUNT] = {46, 47};

@@ -18,11 +18,11 @@ The sketch starts in a safe setup-error state because physical hardware values m
 5. Verify the laser driver is hardware-default-OFF and set `LASER_DRIVER_ACTIVE_HIGH` to match it.
 6. Only after those checks, set `HARDWARE_CONFIGURATION_CONFIRMED` to `true`.
 
-The default display build uses the native 4-bit parallel LCD on Mega pins 22–27. To use an I2C backpack instead, set `LCD_USE_I2C` to `1`, install a compatible `LiquidCrystal_I2C` library, and set `LCD_I2C_ADDRESS` to the address verified on the assembled backpack. Do not wire both LCD interfaces at once.
+The default display build uses an I2C backpack on Mega SDA/SCL pins 20/21 (`LCD_USE_I2C` is `1`). Install a compatible `LiquidCrystal_I2C` library and set `LCD_I2C_ADDRESS` to the address verified on the assembled backpack. Do not wire both LCD interfaces at once.
 
 ## Build and operation
 
-Open the `LaserDuels` sketch in the Arduino IDE, select an Arduino Mega 2560-compatible board and port, then compile and upload. The sketch uses the Arduino `Servo` and `LiquidCrystal` libraries; the optional I2C build also requires `LiquidCrystal_I2C`.
+Open the `LaserDuels` sketch in the Arduino IDE, select an Arduino Mega 2560-compatible board and port, then compile and upload. The sketch uses the Arduino `Servo` library and the compatible `LiquidCrystal_I2C` library.
 
 - Numeric keys enter an answer; `*` clears it; `#` submits it.
 - A correct answer triggers that player's bounded laser pulse; a sensor hit, not a correct answer alone, awards a point.
@@ -33,6 +33,6 @@ Test each input, sensor, servo, and laser driver independently before playing. U
 
 ## Validation note
 
-The default parallel-LCD build compiled successfully for `arduino:avr:mega` with Arduino AVR board package 1.8.6, Servo 1.3.0, and LiquidCrystal 1.0.7 using `arduino-cli compile --clean --warnings all`. The build used 14,142 bytes of program storage and 1,111 bytes of global memory. The only warnings were unused parameters in the Arduino AVR core's `new.cpp`; no sketch warnings were reported.
+The validation record below applies to the earlier parallel-LCD configuration. The current I2C-LCD configuration still needs to be compiled with the installed `LiquidCrystal_I2C` library and tested with the backpack's verified address.
 
 Static checks also passed for pin conflicts, keypad dimensions, trivia prompt/answer counts, numeric answer bounds, configured timing constants, absence of blocking `delay()` calls, safe-default laser setup, and arithmetic operand ranges. These checks do not replace compiling the optional I2C variant or testing the assembled game. Complete the documented hardware acceptance checks before enabling the game.

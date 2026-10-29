@@ -10,8 +10,9 @@
 
   Required libraries:
     - Servo (included with the Arduino AVR board package)
-    - LiquidCrystal (included with Arduino)
-    - Optional LiquidCrystal_I2C when LCD_USE_I2C is set to 1
+    - LiquidCrystal_I2C (use a version compatible with lcd.init() and
+      lcd.backlight())
+  The LCD uses an I2C backpack on the Mega's SDA/SCL pins.
 */
 
 // ---------------------------------------------------------------------------
@@ -20,44 +21,32 @@
 
 #include <Arduino.h>
 #include <Servo.h>
-#include <LiquidCrystal.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
 
-#define LCD_USE_I2C 0
-
-#if LCD_USE_I2C
-#include <Wire.h>
-#include <LiquidCrystal_I2C.h>
-#endif
-
 namespace Config {
   // Change to true only after reviewing the wiring and calibrating hardware.
-  const bool HARDWARE_CONFIGURATION_CONFIRMED = false;
+  const bool HARDWARE_CONFIGURATION_CONFIRMED = true;
 
-  const uint8_t LCD_RS = 22;
-  const uint8_t LCD_ENABLE = 23;
-  const uint8_t LCD_D4 = 24;
-  const uint8_t LCD_D5 = 25;
-  const uint8_t LCD_D6 = 26;
-  const uint8_t LCD_D7 = 27;
-#if LCD_USE_I2C
-  const uint8_t LCD_I2C_ADDRESS = 0x27;  // Replace with the address you verified.
-#endif
+  const uint8_t LCD_I2C_ADDRESS = 0x20; // Replace with the verified address.
 
   const uint8_t PLAYER_COUNT = 2;
   const uint8_t KEYPAD_ROWS = 4;
-  const uint8_t KEYPAD_COLS = 4;
-  const uint8_t PLAYER_1_ROW_PINS[KEYPAD_ROWS] = {30, 31, 32, 33};
-  const uint8_t PLAYER_1_COL_PINS[KEYPAD_COLS] = {34, 35, 36, 37};
-  const uint8_t PLAYER_2_ROW_PINS[KEYPAD_ROWS] = {38, 39, 40, 41};
-  const uint8_t PLAYER_2_COL_PINS[KEYPAD_COLS] = {42, 43, 44, 45};
+  const uint8_t KEYPAD_COLS = 3;
+  // Adafruit 3x4 keypad connector order: COL2, ROW1, COL1, ROW4,
+  // COL3, ROW3, ROW2. Pins remain wired left-to-right in ascending order.
+  const uint8_t PLAYER_1_ROW_PINS[KEYPAD_ROWS] = {23, 28, 27, 25};
+  const uint8_t PLAYER_1_COL_PINS[KEYPAD_COLS] = {24, 22, 26};
+  const uint8_t PLAYER_2_ROW_PINS[KEYPAD_ROWS] = {35, 40, 39, 37};
+  const uint8_t PLAYER_2_COL_PINS[KEYPAD_COLS] = {36, 34, 38};
   const char KEYPAD_LAYOUT[KEYPAD_ROWS][KEYPAD_COLS] = {
-    {'1', '2', '3', 'A'},
-    {'4', '5', '6', 'B'},
-    {'7', '8', '9', 'C'},
-    {'*', '0', '#', 'D'}
+    {'1', '2', '3'},
+    {'4', '5', '6'},
+    {'7', '8', '9'},
+    {'*', '0', '#'}
   };
 
   const uint8_t BUTTON_PINS[PLAYER_COUNT] = {46, 47};
@@ -66,13 +55,17 @@ namespace Config {
   const uint8_t SENSOR_PINS[PLAYER_COUNT] = {A0, A1};
   const uint8_t BUZZER_PIN = 12;
 
+  // Temporary bench-test mode: Player 2's sensor is not installed yet.
+  const bool SENSOR_ENABLED[PLAYER_COUNT] = {true, false};
+  const bool LASER_OUTPUTS_ENABLED = false;
+
   // SG90 pulse limits: keep this conservative until each servo is calibrated.
   const uint16_t SERVO_MIN_PULSE_US = 1000;
   const uint16_t SERVO_MAX_PULSE_US = 2000;
 
   // Calibrate each servo mechanically before enabling the game.
-  const uint8_t SERVO_REAR_DEGREES[PLAYER_COUNT] = {90, 90};
-  const uint8_t SERVO_FACING_DEGREES[PLAYER_COUNT] = {90, 90};
+  const uint8_t SERVO_REAR_DEGREES[PLAYER_COUNT] = {10, 16};
+  const uint8_t SERVO_FACING_DEGREES[PLAYER_COUNT] = {132, 148};
 
   // Set these only after measuring the real circuits.
   const bool LASER_DRIVER_ACTIVE_HIGH = true;
@@ -100,13 +93,7 @@ namespace Config {
   const uint16_t SENSOR_MAX_CALIBRATION_SPREAD = 180;
 }
 
-#if LCD_USE_I2C
 LiquidCrystal_I2C lcd(Config::LCD_I2C_ADDRESS, 16, 2);
-#else
-LiquidCrystal lcd(Config::LCD_RS, Config::LCD_ENABLE,
-                  Config::LCD_D4, Config::LCD_D5,
-                  Config::LCD_D6, Config::LCD_D7);
-#endif
 
 enum GameMode : uint8_t {
   MODE_BOOT,
@@ -293,6 +280,7 @@ bool elapsed(uint32_t now, uint32_t started, uint32_t duration) {
 }
 
 void setLaser(uint8_t player, bool enabled) {
+  enabled = enabled && Config::LASER_OUTPUTS_ENABLED;
   const uint8_t activeLevel =
       Config::LASER_DRIVER_ACTIVE_HIGH ? HIGH : LOW;
   const uint8_t inactiveLevel =
@@ -770,6 +758,10 @@ void sampleCalibration(uint32_t now) {
   lastCalibrationSample = now;
 
   for (uint8_t player = 0; player < Config::PLAYER_COUNT; ++player) {
+    if (!Config::SENSOR_ENABLED[player]) {
+      continue;
+    }
+
     const uint16_t reading = analogRead(Config::SENSOR_PINS[player]);
     SensorState &sensor = sensors[player];
     sensor.calibrationSum += reading;
@@ -785,6 +777,10 @@ void sampleCalibration(uint32_t now) {
 
 bool finishCalibration() {
   for (uint8_t player = 0; player < Config::PLAYER_COUNT; ++player) {
+    if (!Config::SENSOR_ENABLED[player]) {
+      continue;
+    }
+
     SensorState &sensor = sensors[player];
     if (sensor.calibrationSamples < 50) {
       snprintf(configurationError, sizeof(configurationError),
@@ -853,6 +849,10 @@ void serviceSensors(uint32_t now) {
   lastSensorSample = now;
 
   for (uint8_t player = 0; player < Config::PLAYER_COUNT; ++player) {
+    if (!Config::SENSOR_ENABLED[player]) {
+      continue;
+    }
+
     SensorState &sensor = sensors[player];
     const uint16_t reading = analogRead(Config::SENSOR_PINS[player]);
     const bool aboveRearm =
@@ -1016,12 +1016,8 @@ void setup() {
   pinMode(Config::BUZZER_PIN, OUTPUT);
   digitalWrite(Config::BUZZER_PIN, LOW);
 
-#if LCD_USE_I2C
   lcd.init();
   lcd.backlight();
-#else
-  lcd.begin(16, 2);
-#endif
 
   gameMode = MODE_BOOT;
   clearDisplayCache();

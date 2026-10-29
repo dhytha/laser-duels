@@ -8,7 +8,7 @@ This document is the complete implementation blueprint for the Arduino Mega vers
 
 Build a two-player, standalone game controller for an Arduino Mega 2560-class board. It controls:
 
-- Two directly wired 4×4 matrix keypads (one per player).
+- Two directly wired 4×3 matrix keypads (one per player), with keys 0–9, `*`, and `#`.
 - Two momentary reflex buttons.
 - Two MG995R standard servos, one for each motorized character.
 - Two 5 V red laser modules, one attached to each character.
@@ -34,7 +34,7 @@ The supplied project README describes an Uno and keypad multiplexing. Those deta
 ### 1.3 Hardware-specific requirements
 
 - Use the Adafruit assembled 16×2 LCD in its native parallel mode, or support an optional I2C backpack as a build-time wiring choice. The actual assembled LCD kit is normally a parallel HD44780-compatible display; I2C requires a separately fitted backpack.
-- Use direct keypad matrix wiring, eight Mega pins per keypad.
+- Use direct keypad matrix wiring, seven Mega pins per keypad (four rows and three columns).
 - Recommend a robust, calibrated phototransistor circuit rather than relying on a bare digital input.
 - Do not power MG995R servos from the Mega 5 V pin or USB. Use a separate, appropriately rated regulated servo supply and connect its ground to Mega ground.
 - Do not drive laser modules directly from Mega GPIO pins unless the particular module's current specification and interface explicitly permit it. Use a suitable transistor/MOSFET driver stage.
@@ -64,10 +64,9 @@ This is a proposed pin map, not a substitute for checking the actual LCD backpac
 
 | Function | Mega pin(s) | Notes |
 |---|---:|---|
-| LCD parallel RS, Enable, D4–D7 | 22, 23, 24, 25, 26, 27 | Six GPIO pins; use the LCD in 4-bit mode. |
-| LCD I2C SDA / SCL (alternate build only) | 20 / 21 | Mega hardware I2C pins. Do not assign these to other functions in the I2C build. |
-| Player 1 keypad (4 rows + 4 columns) | 30–37 | Pin order must match the installed keypad's row/column cable order. |
-| Player 2 keypad (4 rows + 4 columns) | 38–45 | Pin order must match the installed keypad's row/column cable order. |
+| LCD I2C SDA / SCL (selected build) | 20 / 21 | Mega hardware I2C pins. Do not assign these to other functions. |
+| Player 1 Adafruit 3×4 keypad | Connector order `COL2, ROW1, COL1, ROW4, COL3, ROW3, ROW2` to pins 22–28 | Row array `{23, 28, 27, 25}`, column array `{24, 22, 26}`; pin 29 is unused. |
+| Player 2 Adafruit 3×4 keypad | Same connector order to pins 34–40 | Row array `{35, 40, 39, 37}`, column array `{36, 34, 38}`; pin 41 is unused. |
 | Player 1 / Player 2 reflex buttons | 46 / 47 | Use internal pull-ups where compatible with the wiring; connect each switch to ground. |
 | Player 1 / Player 2 servo signal | 8 / 9 | Servo library signal pins; they need not be PWM pins. |
 | Player 1 / Player 2 laser driver input | 10 / 11 | GPIO controls an external driver; default output state must be OFF. |
@@ -75,11 +74,11 @@ This is a proposed pin map, not a substitute for checking the actual LCD backpac
 | Player 1 / Player 2 phototransistor divider output | A0 / A1 | Analog reads support baseline measurement and configurable thresholds. |
 | Spare | Remaining pins | Preserve for diagnostics or later additions; do not silently repurpose assigned pins. |
 
-The six parallel LCD pins and the I2C pair are alternative builds, not simultaneous LCD interfaces. Keypads remain on pins 30–45 in either build.
+The selected LCD build uses I2C on pins 20/21. Keypads use seven pins each: 22–28 for Player 1 and 34–40 for Player 2. Pins 29 and 41 are unused. The optional parallel LCD build is not compatible with this keypad pin map unless the keypad pins are reassigned.
 
-### 3.2 LCD build option A — native parallel, 4-bit
+### 3.2 Alternate LCD build — native parallel, 4-bit
 
-Use the LCD's 16-pin header and the kit's contrast potentiometer. Connect LCD ground and logic power to the appropriate Mega ground and regulated logic supply; connect contrast through the supplied potentiometer; connect RS, Enable, and D4–D7 to the six pins in the table. Tie RW to ground so the controller only writes to the LCD. Backlight pins must be wired with the current-limiting arrangement appropriate to the exact LCD module; do not assume the backlight includes a resistor unless its documentation confirms it.
+This is not the selected build. Using the native parallel interface requires six GPIO pins and therefore requires changing the keypad pin assignment to avoid conflicts. Use the LCD's 16-pin header and the kit's contrast potentiometer. Connect LCD ground and logic power to the appropriate Mega ground and regulated logic supply; connect contrast through the supplied potentiometer; connect RS, Enable, and D4–D7 to six available pins. Tie RW to ground so the controller only writes to the LCD. Backlight pins must be wired with the current-limiting arrangement appropriate to the exact LCD module; do not assume the backlight includes a resistor unless its documentation confirms it.
 
 The sketch's display adapter for this option must initialize a 16×2, 4-bit display, set a readable startup state, clear or overwrite stale characters when changing screens, and provide functions for score/status, question pages, round results, and winner display. The contrast potentiometer should be adjusted during assembly.
 
@@ -91,7 +90,7 @@ The display adapter must expose the same game-facing display operations as the p
 
 ### 3.4 Direct keypad wiring
 
-Each 4×4 matrix keypad has four row wires and four column wires. Connect each keypad's eight wires to its own eight-pin group. Record the row/column wire order and key legend during assembly, then define both in one keypad configuration. Scan each keypad independently using a keypad library compatible with the selected Arduino toolchain, or implement an equivalent non-blocking matrix scan with proper row/column electrical configuration.
+Each Adafruit 3×4 matrix keypad has four row wires and three column wires in an interleaved connector order: `COL2, ROW1, COL1, ROW4, COL3, ROW3, ROW2`. Connect the seven connector contacts left-to-right to the assigned consecutive pin group. The sketch maps this order to the default key layout `1 2 3 / 4 5 6 / 7 8 9 / * 0 #`. Scan each keypad independently using a keypad library compatible with the selected Arduino toolchain, or implement an equivalent non-blocking matrix scan with proper row/column electrical configuration.
 
 Keypad events must be debounced and reported as key transitions/events rather than repeatedly interpreted as new presses while a key is held. Do not use keypad keys as interrupts. Verify the actual key labels against the configured mapping before gameplay.
 
@@ -397,4 +396,3 @@ After a winner is declared, keep both lasers off and keep the final score visibl
 - [ ] Simultaneous hits, round reset, laser pulse, cooldown, and restart policies are configured and tested.
 - [ ] Match ends at five points and displays final scores.
 - [ ] Verification tests pass on the assembled mechanical system, not only in a desktop simulation.
-

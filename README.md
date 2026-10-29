@@ -56,7 +56,7 @@ During a round, players perform two distinct actions concurrently:
 | **Actuators** | 2 | Micro Servo Motors (e.g., SG90) |
 | **Emitters** | 2 | $650\text{ nm}$, $5\text{ V}$, $5\text{ mW}$ Red Laser Diodes |
 | **Sensors** | 2 | Phototransistors |
-| **User Input** | 2 | $4 \times 4$ Matrix Keypads |
+| **User Input** | 2 | $4 \times 3$ Matrix Keypads (0–9, *, #) |
 | **User Input** | 2 | Momentary Push Buttons |
 | **Audio** | 1 | Piezo Speaker / Buzzer |
 | **Power Supply** | 1 | Portable Battery Pack with Switch |
